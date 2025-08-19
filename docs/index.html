@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Drive — Motivation</title>
+  <meta name="description" content="A fresh motivation quote every time you open or refresh." />
+  <style>
+    :root { --maxw: 760px; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(160deg, #f6f8fb 0%, #eef2f9 60%, #e9f0ff 100%);
+      color: #0f172a;
+    }
+    .card {
+      width: min(92vw, var(--maxw));
+      background: #fff;
+      padding: 28px 24px;
+      border-radius: 16px;
+      box-shadow: 0 10px 28px rgba(2,6,23,.08), 0 2px 10px rgba(2,6,23,.04);
+      text-align: center;
+    }
+    h1 { margin: 0 0 10px; font-size: 22px; letter-spacing: .3px; font-weight: 700; }
+    blockquote { margin: 18px auto 8px; font-size: clamp(22px, 4.3vw, 34px); line-height: 1.3; font-weight: 700; }
+    .author { margin-top: 6px; opacity: .7; font-weight: 600; }
+    .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+    button {
+      border: 0; padding: 12px 18px; border-radius: 999px; font-weight: 700; cursor: pointer;
+      background: #111827; color: #fff; transition: transform .06s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button[disabled] { opacity: .55; cursor: progress; transform: none; }
+    .muted { font-size: 12px; opacity: .6; margin-top: 10px; }
+    .fade { animation: fade .35s ease; }
+    @keyframes fade { from {opacity: .2; transform: translateY(3px)} to {opacity:1; transform: none} }
+    .src { font-size: 11px; opacity: .55; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Fuel Your Focus</h1>
+    <blockquote id="quote" class="fade">Loading a fresh quote…</blockquote>
+    <div id="author" class="author"></div>
+
+    <div class="row">
+      <button id="new">New quote ↻</button>
+      <button id="copy">Copy</button>
+    </div>
+
+    <div class="src" id="source"></div>
+    <div class="muted" id="hint">Tip: refresh or tap “New quote” for another.</div>
+  </main>
+
+  <script>
+    // ——— Endpoints (all HTTPS, CORS-friendly) ———
+    // 1) Quotable
+    const API_QUOTABLE = "https://api.quotable.io/random?tags=inspirational|success|wisdom";
+    // 2) Type.fit (big list, we pick random)
+    const API_TYPEFIT = "https://type.fit/api/quotes";
+    // 3) ZenQuotes
+    const API_ZEN = "https://zenquotes.io/api/random";
+
+    const elQuote = document.getElementById("quote");
+    const elAuthor = document.getElementById("author");
+    const elSource = document.getElementById("source");
+    const btnNew = document.getElementById("new");
+    const btnCopy = document.getElementById("copy");
+
+    // Small timeout wrapper so a blocked network can fall through quickly
+    function withTimeout(promise, ms, label) {
+      return Promise.race([
+        promise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error(label + " timeout")), ms)),
+      ]);
+    }
+
+    async function fetchQuotable() {
+      const res = await withTimeout(fetch(API_QUOTABLE, { cache: "no-store", mode: "cors" }), 2500, "Quotable");
+      if (!res.ok) throw new Error("Quotable HTTP " + res.status);
+      const data = await res.json();
+      return { text: data.content, author: data.author || "Unknown", source: "Quotable" };
+    }
+
+    async function fetchTypefit() {
+      const res = await withTimeout(fetch(API_TYPEFIT, { cache: "no-store", mode: "cors" }), 2500, "Type.fit");
+      if (!res.ok) throw new Error("Type.fit HTTP " + res.status);
+      const list = await res.json();
+      const item = list[Math.floor(Math.random() * list.length)];
+      return { text: item.text, author: item.author || "Unknown", source: "Type.fit" };
+    }
+
+    async function fetchZen() {
+      const res = await withTimeout(fetch(API_ZEN, { cache: "no-store", mode: "cors" }), 2500, "ZenQuotes");
+      if (!res.ok) throw new Error("ZenQuotes HTTP " + res.status);
+      const arr = await res.json();
+      const item = Array.isArray(arr) ? arr[0] : arr;
+      return { text: item.q, author: item.a || "Unknown", source: "ZenQuotes" };
+    }
+
+    function randomLocal() {
+      const locals = [
+        { text: "Small steps, daily. Big wins, eventually.", author: "Unknown" },
+        { text: "Focus on the next rep, not the final result.", author: "Unknown" },
+        { text: "Consistency compounds harder than motivation.", author: "Unknown" },
+        { text: "Make it impossible not to succeed: prepare.", author: "Unknown" },
+        { text: "Discipline is a choice you renew each morning.", author: "Unknown" }
+      ];
+      const it = locals[Math.floor(Math.random() * locals.length)];
+      return { ...it, source: "Local" };
+    }
+
+    async function getQuote() {
+      btnNew.disabled = true;
+      elQuote.classList.remove("fade");
+      elSource.textContent = "Fetching…";
+      try {
+        const q =
+          await fetchQuotable()
+            .catch(fetchTypefit)
+            .catch(fetchZen)
+            .catch(() => randomLocal());
+        setQuote(q.text, q.author, q.source);
+      } finally {
+        setTimeout(() => { btnNew.disabled = false; elQuote.classList.add("fade"); }, 120);
+      }
+    }
+
+    function setQuote(text, author, source) {
+      elQuote.textContent = `“${text}”`;
+      elAuthor.textContent = author ? `— ${author}` : "";
+      elSource.textContent = `Source: ${source}`;
+    }
+
+    btnCopy.addEventListener("click", async () => {
+      const text = `${elQuote.textContent} ${elAuthor.textContent}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        btnCopy.textContent = "Copied!";
+        setTimeout(() => btnCopy.textContent = "Copy", 1400);
+      } catch { alert("Could not copy — your browser blocked it."); }
+    });
+
+    btnNew.addEventListener("click", getQuote);
+    getQuote(); // initial load
+  </script>
+</body>
+</html>
