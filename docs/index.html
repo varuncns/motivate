@@ -10,17 +10,14 @@
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
-      display: grid;
-      place-items: center;
+      display: grid; place-items: center;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
       background: linear-gradient(160deg, #f6f8fb 0%, #eef2f9 60%, #e9f0ff 100%);
       color: #0f172a;
     }
     .card {
       width: min(92vw, var(--maxw));
-      background: #fff;
-      padding: 28px 24px;
-      border-radius: 16px;
+      background: #fff; padding: 28px 24px; border-radius: 16px;
       box-shadow: 0 10px 28px rgba(2,6,23,.08), 0 2px 10px rgba(2,6,23,.04);
       text-align: center;
     }
@@ -56,83 +53,46 @@
   </main>
 
   <script>
-    // ——— Endpoints (all HTTPS, CORS-friendly) ———
-    // 1) Quotable
-    const API_QUOTABLE = "https://api.quotable.io/random?tags=inspirational|success|wisdom";
-    // 2) Type.fit (big list, we pick random)
-    const API_TYPEFIT = "https://type.fit/api/quotes";
-    // 3) ZenQuotes
-    const API_ZEN = "https://zenquotes.io/api/random";
-
     const elQuote = document.getElementById("quote");
     const elAuthor = document.getElementById("author");
     const elSource = document.getElementById("source");
     const btnNew = document.getElementById("new");
     const btnCopy = document.getElementById("copy");
 
-    // Small timeout wrapper so a blocked network can fall through quickly
-    function withTimeout(promise, ms, label) {
-      return Promise.race([
-        promise,
-        new Promise((_, rej) => setTimeout(() => rej(new Error(label + " timeout")), ms)),
-      ]);
+    let QUOTES = [];
+
+    async function loadQuotes() {
+      // Load local quotes.json (same repo, /docs folder)
+      const res = await fetch("./real_quotes.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("Could not load quotes.json");
+      QUOTES = await res.json();
+      if (!Array.isArray(QUOTES) || QUOTES.length === 0) throw new Error("Empty quotes.json");
     }
 
-    async function fetchQuotable() {
-      const res = await withTimeout(fetch(API_QUOTABLE, { cache: "no-store", mode: "cors" }), 2500, "Quotable");
-      if (!res.ok) throw new Error("Quotable HTTP " + res.status);
-      const data = await res.json();
-      return { text: data.content, author: data.author || "Unknown", source: "Quotable" };
+    function randomQuote() {
+      const i = Math.floor(Math.random() * QUOTES.length);
+      return QUOTES[i];
     }
 
-    async function fetchTypefit() {
-      const res = await withTimeout(fetch(API_TYPEFIT, { cache: "no-store", mode: "cors" }), 2500, "Type.fit");
-      if (!res.ok) throw new Error("Type.fit HTTP " + res.status);
-      const list = await res.json();
-      const item = list[Math.floor(Math.random() * list.length)];
-      return { text: item.text, author: item.author || "Unknown", source: "Type.fit" };
+    function setQuote(q) {
+      elQuote.textContent = `“${q.text}”`;
+      elAuthor.textContent = q.author ? `— ${q.author}` : "";
+      elSource.textContent = `Source: Local (quotes.json · ${QUOTES.length} quotes)`;
     }
 
-    async function fetchZen() {
-      const res = await withTimeout(fetch(API_ZEN, { cache: "no-store", mode: "cors" }), 2500, "ZenQuotes");
-      if (!res.ok) throw new Error("ZenQuotes HTTP " + res.status);
-      const arr = await res.json();
-      const item = Array.isArray(arr) ? arr[0] : arr;
-      return { text: item.q, author: item.a || "Unknown", source: "ZenQuotes" };
-    }
-
-    function randomLocal() {
-      const locals = [
-        { text: "Small steps, daily. Big wins, eventually.", author: "Unknown" },
-        { text: "Focus on the next rep, not the final result.", author: "Unknown" },
-        { text: "Consistency compounds harder than motivation.", author: "Unknown" },
-        { text: "Make it impossible not to succeed: prepare.", author: "Unknown" },
-        { text: "Discipline is a choice you renew each morning.", author: "Unknown" }
-      ];
-      const it = locals[Math.floor(Math.random() * locals.length)];
-      return { ...it, source: "Local" };
-    }
-
-    async function getQuote() {
+    async function newQuote() {
       btnNew.disabled = true;
       elQuote.classList.remove("fade");
-      elSource.textContent = "Fetching…";
       try {
-        const q =
-          await fetchQuotable()
-            .catch(fetchTypefit)
-            .catch(fetchZen)
-            .catch(() => randomLocal());
-        setQuote(q.text, q.author, q.source);
+        if (QUOTES.length === 0) await loadQuotes();
+        setQuote(randomQuote());
+      } catch (e) {
+        elQuote.textContent = "Could not load quotes.json. Check your GitHub Pages settings.";
+        elAuthor.textContent = "";
+        elSource.textContent = "";
       } finally {
         setTimeout(() => { btnNew.disabled = false; elQuote.classList.add("fade"); }, 120);
       }
-    }
-
-    function setQuote(text, author, source) {
-      elQuote.textContent = `“${text}”`;
-      elAuthor.textContent = author ? `— ${author}` : "";
-      elSource.textContent = `Source: ${source}`;
     }
 
     btnCopy.addEventListener("click", async () => {
@@ -141,11 +101,11 @@
         await navigator.clipboard.writeText(text);
         btnCopy.textContent = "Copied!";
         setTimeout(() => btnCopy.textContent = "Copy", 1400);
-      } catch { alert("Could not copy — your browser blocked it."); }
+      } catch { alert("Clipboard blocked by browser."); }
     });
 
-    btnNew.addEventListener("click", getQuote);
-    getQuote(); // initial load
+    btnNew.addEventListener("click", newQuote);
+    newQuote(); // initial load
   </script>
 </body>
 </html>
