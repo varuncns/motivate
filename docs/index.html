@@ -35,6 +35,15 @@
     .fade { animation: fade .35s ease; }
     @keyframes fade { from {opacity: .2; transform: translateY(3px)} to {opacity:1; transform: none} }
     .src { font-size: 11px; opacity: .55; margin-top: 4px; }
+    .footer {
+      margin-top: 24px;
+      font-size: 13px;
+      opacity: .65;
+    }
+    .footer strong {
+      font-weight: 700;
+    }
+
   </style>
 </head>
 <body>
@@ -50,6 +59,11 @@
 
     <div class="src" id="source"></div>
     <div class="muted" id="hint">Tip: refresh or tap “New quote” for another.</div>
+
+    <footer class="footer">
+      Built by <strong>Varun C N S</strong>
+    </footer>
+    
   </main>
 
   <script>
